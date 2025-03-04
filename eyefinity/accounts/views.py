@@ -13,8 +13,18 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            user = serializer.save()  # Save new user
+            
+            # Generate JWT tokens for the registered user
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
+            return Response({
+                "user": serializer.data,
+                "refresh": str(refresh),
+                "access": access_token
+            }, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
@@ -31,11 +41,14 @@ class LoginView(APIView):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         if user.check_password(password):
-            # Generate JWT tokens
+            # 🔹 Generate JWT Tokens
             refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
             return Response({
-                "refresh": str(refresh),
-                "access": str(refresh.access_token)  # Return JWT access token
+                "message": "Login successful",
+                "refresh_token": str(refresh),
+                "access_token": access_token
             }, status=status.HTTP_200_OK)
         else:
             return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
